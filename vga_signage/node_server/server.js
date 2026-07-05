@@ -3,9 +3,21 @@ const dgram = require('dgram');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 const WEB_PORT = 3000;
+
+// Global State
+let displayState = {
+    mode: 'auto', // 'auto' or 'manual'
+    currentMedia: null,
+    slideDuration: 10000,
+    pdfScroll: true
+};
 
 app.use(express.static('public'));
 app.use('/media', express.static('media'));
@@ -22,7 +34,19 @@ app.get('/api/playlist', (req, res) => {
     res.json(files);
 });
 
-app.listen(WEB_PORT, () => {
+io.on('connection', (socket) => {
+    // Send current state to new connections
+    socket.emit('state_update', displayState);
+
+    // Listen for updates from the Controller
+    socket.on('set_state', (newState) => {
+        displayState = { ...displayState, ...newState };
+        // Broadcast to all connected clients (Dashboard and Controllers)
+        io.emit('state_update', displayState);
+    });
+});
+
+server.listen(WEB_PORT, () => {
     console.log(`Web server running on http://localhost:${WEB_PORT}`);
 });
 
@@ -87,9 +111,30 @@ async function startServer() {
 
                         const imgData = ctx.getImageData(0, 0, w, h).data;
                         const grayscale = new Uint8Array(w * h);
-
-                        for (let i = 0; i < imgData.length; i += 4) {
-                            grayscale[i / 4] = (imgData[i] * 0.299 + imgData[i + 1] * 0.587 + imgData[i + 2] * 0.114);
+                        const errors = new Float32Array(w * h);
+                        
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const idx = y * w + x;
+                                const i = idx * 4;
+                                
+                                // Calculate true luminance and add accumulated error
+                                let val = (imgData[i] * 0.299 + imgData[i + 1] * 0.587 + imgData[i + 2] * 0.114) + errors[idx];
+                                
+                                // Threshold to pure black (0) or pure white (255)
+                                const newColor = val > 127 ? 255 : 0;
+                                grayscale[idx] = newColor;
+                                
+                                const err = val - newColor;
+                                
+                                // Floyd-Steinberg Error Diffusion to preserve anti-aliasing!
+                                if (x + 1 < w) errors[idx + 1] += err * (7 / 16);
+                                if (y + 1 < h) {
+                                    if (x - 1 >= 0) errors[(y + 1) * w + x - 1] += err * (3 / 16);
+                                    errors[(y + 1) * w + x] += err * (5 / 16);
+                                    if (x + 1 < w) errors[(y + 1) * w + x + 1] += err * (1 / 16);
+                                }
+                            }
                         }
                         resolve(Array.from(grayscale));
                     };

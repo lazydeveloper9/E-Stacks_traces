@@ -20,6 +20,12 @@
         .media.active {
             opacity: 1;
         }
+        /* New class for PDF scrolling */
+        canvas.media.scrollable {
+            height: auto !important;
+            object-fit: cover; /* Force to fill width */
+            top: 0;
+        }
         canvas.media {
             width: 100% !important;
             height: 100% !important;
@@ -39,6 +45,9 @@
     <div class="container" id="media-container">
         <!-- Media elements will be injected here -->
     </div>
+    
+    <!-- Socket.io Client -->
+    <script src="/socket.io/socket.io.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>
