@@ -1,5 +1,30 @@
 const puppeteer = require('puppeteer');
 const dgram = require('dgram');
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+
+const app = express();
+const WEB_PORT = 3000;
+
+app.use(express.static('public'));
+app.use('/media', express.static('media'));
+
+app.get('/api/playlist', (req, res) => {
+    const mediaDir = path.join(__dirname, 'media');
+    if (!fs.existsSync(mediaDir)) {
+        fs.mkdirSync(mediaDir);
+        return res.json([]);
+    }
+    const files = fs.readdirSync(mediaDir).filter(file => {
+        return file.match(/\.(png|jpg|jpeg|pdf)$/i);
+    });
+    res.json(files);
+});
+
+app.listen(WEB_PORT, () => {
+    console.log(`Web server running on http://localhost:${WEB_PORT}`);
+});
 
 // --- 2x2 DISPLAY WALL CONFIGURATION ---
 const NODE_WIDTH = 320;
@@ -14,7 +39,7 @@ const UDP_PORT = 12345;
 // TESTING CONFIGURATION:
 // Set this to 0, 1, 2, or 3 to force sending a specific quadrant to your single ESP32.
 // 0 = Top-Left, 1 = Top-Right, 2 = Bottom-Left, 3 = Bottom-Right
-const TEST_QUADRANT = 3;
+const TEST_QUADRANT = 0;
 
 // Logical definitions of the 4 quadrants
 const QUADRANTS = [
@@ -36,36 +61,8 @@ async function startServer() {
     });
     const page = await browser.newPage();
 
-    // We now have a larger 640x480 canvas to play with!
-    // Let's create a design that spans all 4 quadrants so we can see the slicing in action.
-    const content = `
-    <html>
-    <head>
-        <style>
-            body { 
-                margin: 0; padding: 20px; background: #000; color: #fff;
-                font-family: Arial, sans-serif; text-align: center;
-                display: flex; flex-direction: column; justify-content: center; height: 100vh;
-                border: 10px solid #555; box-sizing: border-box;
-            }
-            h1 { font-size: 64px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 5px;}
-            p { font-size: 32px; color: #ccc; margin: 10px; }
-            .grid { display: flex; justify-content: space-around; width: 100%; margin-top: 40px;}
-            .box { border: 2px dashed #fff; padding: 20px; width: 30%; font-size: 24px;}
-        </style>
-    </head>
-    <body>
-        <h1>Global Notice Board</h1>
-        <p>System Architecture: 2x2 VGA Wall</p>
-        <p>Server Status: ONLINE & SYNCED</p>
-        <div class="grid">
-            <div class="box">Data Center Alpha</div>
-            <div class="box">Network Operations</div>
-        </div>
-    </body>
-    </html>
-    `;
-    await page.setContent(content);
+    // Navigate to our local Express dashboard instead of using a hardcoded HTML string
+    await page.goto(`http://localhost:${WEB_PORT}`);
 
     console.log(`Ready! Streaming Quadrant ${TEST_QUADRANT} (${QUADRANTS[TEST_QUADRANT].name}) to ${ESP32_IP}...`);
 
