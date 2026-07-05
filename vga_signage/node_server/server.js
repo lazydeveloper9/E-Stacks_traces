@@ -13,10 +13,11 @@ const WEB_PORT = 3000;
 
 // Global State
 let displayState = {
-    mode: 'auto', // 'auto' or 'manual'
+    mode: 'auto', 
     currentMedia: null,
     slideDuration: 10000,
-    pdfScroll: true
+    pdfScroll: true,
+    layout: 'duplicate' // 'duplicate' or '2x2'
 };
 
 app.use(express.static('public'));
@@ -35,13 +36,10 @@ app.get('/api/playlist', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    // Send current state to new connections
     socket.emit('state_update', displayState);
 
-    // Listen for updates from the Controller
     socket.on('set_state', (newState) => {
         displayState = { ...displayState, ...newState };
-        // Broadcast to all connected clients (Dashboard and Controllers)
         io.emit('state_update', displayState);
     });
 });
@@ -50,54 +48,45 @@ server.listen(WEB_PORT, () => {
     console.log(`Web server running on http://localhost:${WEB_PORT}`);
 });
 
-// --- 2x2 DISPLAY WALL CONFIGURATION ---
-const NODE_WIDTH = 320;
-const NODE_HEIGHT = 240;
-const WALL_WIDTH = NODE_WIDTH * 2;   // 640
-const WALL_HEIGHT = NODE_HEIGHT * 2; // 480
+// --- 4-NODE DISPLAY WALL CONFIGURATION ---
+const NODE_WIDTH = 640;
+const NODE_HEIGHT = 480;
 
-// Your physical ESP32's IP address
-const ESP32_IP = "192.168.31.82";
-const UDP_PORT = 12345;
-
-// TESTING CONFIGURATION:
-// Set this to 0, 1, 2, or 3 to force sending a specific quadrant to your single ESP32.
-// 0 = Top-Left, 1 = Top-Right, 2 = Bottom-Left, 3 = Bottom-Right
-const TEST_QUADRANT = 0;
-
-// Logical definitions of the 4 quadrants
-const QUADRANTS = [
-    { id: 0, offsetX: 0, offsetY: 0, name: "Top-Left" },
-    { id: 1, offsetX: NODE_WIDTH, offsetY: 0, name: "Top-Right" },
-    { id: 2, offsetX: 0, offsetY: NODE_HEIGHT, name: "Bottom-Left" },
-    { id: 3, offsetX: NODE_WIDTH, offsetY: NODE_HEIGHT, name: "Bottom-Right" }
+// Physical IPs of the 4 ESP32s (assign them in your router)
+const ESP32_NODES = [
+    { ip: "192.168.31.82", offsetX: 0, offsetY: 0, name: "Top-Left" },
+    { ip: "192.168.31.83", offsetX: NODE_WIDTH, offsetY: 0, name: "Top-Right" },
+    { ip: "192.168.31.84", offsetX: 0, offsetY: NODE_HEIGHT, name: "Bottom-Left" },
+    { ip: "192.168.31.85", offsetX: NODE_WIDTH, offsetY: NODE_HEIGHT, name: "Bottom-Right" }
 ];
+const UDP_PORT = 12345;
 
 const client = dgram.createSocket('udp4');
 
 async function startServer() {
-    console.log(`Starting headless server. Canvas size: ${WALL_WIDTH}x${WALL_HEIGHT}`);
+    console.log(`Starting headless server...`);
 
-    // Launch puppeteer
     const browser = await puppeteer.launch({
         headless: "new",
-        defaultViewport: { width: WALL_WIDTH, height: WALL_HEIGHT }
+        args: ['--no-sandbox']
     });
     const page = await browser.newPage();
 
-    // Navigate to our local Express dashboard instead of using a hardcoded HTML string
     await page.goto(`http://localhost:${WEB_PORT}`);
 
-    console.log(`Ready! Streaming Quadrant ${TEST_QUADRANT} (${QUADRANTS[TEST_QUADRANT].name}) to ${ESP32_IP}...`);
+    console.log(`Ready! Streaming to Display Wall...`);
 
-    setInterval(async () => {
+    // We use a self-executing async loop instead of setInterval to prevent overlap
+    async function captureLoop() {
         try {
-            const element = await page.$('body');
-            const screenshotBinary = await element.screenshot({ encoding: 'binary' });
-            const screenshotBase64 = await element.screenshot({ encoding: 'base64' });
-
-            // Save preview image (This will show the full 640x480 wall design!)
-            require('fs').writeFileSync('preview_full_wall.png', screenshotBinary);
+            // Determine dynamic resolution based on layout
+            const currentWidth = displayState.layout === '2x2' ? NODE_WIDTH * 2 : NODE_WIDTH;
+            const currentHeight = displayState.layout === '2x2' ? NODE_HEIGHT * 2 : NODE_HEIGHT;
+            
+            await page.setViewport({ width: currentWidth, height: currentHeight });
+            
+            const screenshotBase64 = await page.screenshot({ encoding: 'base64' });
+            require('fs').writeFileSync('preview_full_wall.png', Buffer.from(screenshotBase64, 'base64'));
 
             const pixelData = await page.evaluate(async (base64, w, h) => {
                 return new Promise((resolve) => {
@@ -117,17 +106,11 @@ async function startServer() {
                             for (let x = 0; x < w; x++) {
                                 const idx = y * w + x;
                                 const i = idx * 4;
-                                
-                                // Calculate true luminance and add accumulated error
                                 let val = (imgData[i] * 0.299 + imgData[i + 1] * 0.587 + imgData[i + 2] * 0.114) + errors[idx];
-                                
-                                // Threshold to pure black (0) or pure white (255)
                                 const newColor = val > 127 ? 255 : 0;
                                 grayscale[idx] = newColor;
-                                
                                 const err = val - newColor;
                                 
-                                // Floyd-Steinberg Error Diffusion to preserve anti-aliasing!
                                 if (x + 1 < w) errors[idx + 1] += err * (7 / 16);
                                 if (y + 1 < h) {
                                     if (x - 1 >= 0) errors[(y + 1) * w + x - 1] += err * (3 / 16);
@@ -140,38 +123,47 @@ async function startServer() {
                     };
                     img.src = 'data:image/png;base64,' + base64;
                 });
-            }, screenshotBase64, WALL_WIDTH, WALL_HEIGHT);
+            }, screenshotBase64, currentWidth, currentHeight);
 
-            // Select the quadrant to extract based on user config
-            const quad = QUADRANTS[TEST_QUADRANT];
-
-            // Extract and send ONLY the pixels for this specific quadrant
+            // Interleaved UDP Streaming
             for (let localY = 0; localY < NODE_HEIGHT; localY++) {
-                const packet = Buffer.alloc(322);
-                packet[0] = (localY >> 8) & 0xFF; // Local Line index (0 to 239)
-                packet[1] = localY & 0xFF;
-
-                const globalY = quad.offsetY + localY;
-
-                for (let localX = 0; localX < NODE_WIDTH; localX++) {
-                    const globalX = quad.offsetX + localX;
-                    packet[2 + localX] = pixelData[globalY * WALL_WIDTH + globalX];
+                
+                // Construct and send packet for each node for THIS line
+                for (let i = 0; i < ESP32_NODES.length; i++) {
+                    const node = ESP32_NODES[i];
+                    
+                    const readOffsetX = displayState.layout === 'duplicate' ? 0 : node.offsetX;
+                    const readOffsetY = displayState.layout === 'duplicate' ? 0 : node.offsetY;
+                    const globalY = readOffsetY + localY;
+                    
+                    const packet = Buffer.alloc(NODE_WIDTH + 2);
+                    packet[0] = (localY >> 8) & 0xFF; // Local Line index
+                    packet[1] = localY & 0xFF;
+                    
+                    for (let localX = 0; localX < NODE_WIDTH; localX++) {
+                        const globalX = readOffsetX + localX;
+                        packet[2 + localX] = pixelData[globalY * currentWidth + globalX];
+                    }
+                    
+                    client.send(packet, UDP_PORT, node.ip, (err) => {
+                        // ignore errors to prevent console spam
+                    });
                 }
-
-                client.send(packet, UDP_PORT, ESP32_IP, (err) => {
-                    if (err) console.error("UDP Send Error:", err);
-                });
-
-                // Keep the 2ms delay so the ESP32 doesn't drop packets!
+                
+                // Wait 2ms after sending the line to ALL nodes
                 await new Promise(r => setTimeout(r, 2));
             }
-
-            console.log(`Sent Quadrant ${TEST_QUADRANT} to ${ESP32_IP}`);
 
         } catch (err) {
             console.error("Frame capture error:", err);
         }
-    }, 1000);
+        
+        // Loop at approximately 1 FPS
+        setTimeout(captureLoop, 1000);
+    }
+    
+    // Start loop
+    captureLoop();
 }
 
 startServer();

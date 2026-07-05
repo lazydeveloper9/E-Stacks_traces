@@ -16,17 +16,32 @@
         .btn:hover { background: #2980b9; }
         .btn-play { background: #2ecc71; }
         .btn-play:hover { background: #27ae60; }
+        .btn-layout { background: #9b59b6; }
+        .btn-layout:hover { background: #8e44ad; }
         .media-list { list-style: none; padding: 0; }
         .media-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; word-break: break-all; gap: 10px;}
         .media-item:last-child { border-bottom: none; }
         .badge { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
         .badge.auto { background: #2ecc71; }
+        .badge.layout { background: #f39c12; margin-left: 10px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>Control Panel <span id="mode-badge" class="badge">Loading</span></h1>
+        <h1>Control Panel 
+            <span id="mode-badge" class="badge">Loading</span>
+            <span id="layout-badge" class="badge layout">Layout</span>
+        </h1>
         
+        <div class="control-group">
+            <label>Hardware Layout</label>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-layout" onclick="setLayout('duplicate')">1x1 Duplicate</button>
+                <button class="btn btn-layout" onclick="setLayout('2x2')">2x2 Video Wall</button>
+            </div>
+            <small style="color:#7f8c8d; display:block; margin-top:5px;">Changes the backend streaming logic instantly.</small>
+        </div>
+
         <div class="control-group">
             <label>Mode</label>
             <div style="display:flex; gap:10px;">

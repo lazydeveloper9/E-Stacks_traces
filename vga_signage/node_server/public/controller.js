@@ -14,6 +14,13 @@ socket.on('state_update', (state) => {
         badge.textContent = 'MANUAL';
         badge.className = 'badge';
     }
+
+    const layoutBadge = document.getElementById('layout-badge');
+    if (state.layout === '2x2') {
+        layoutBadge.textContent = '2x2 WALL';
+    } else {
+        layoutBadge.textContent = '1x1 DUPLICATE';
+    }
     
     // Update Settings Inputs
     document.getElementById('duration').value = state.slideDuration / 1000;
@@ -22,6 +29,10 @@ socket.on('state_update', (state) => {
 
 function setMode(mode) {
     socket.emit('set_state', { mode: mode });
+}
+
+function setLayout(layout) {
+    socket.emit('set_state', { layout: layout });
 }
 
 function updateSettings() {

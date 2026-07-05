@@ -12,7 +12,7 @@ const int bluePins[] = {18};
 const int hsyncPin = 23;
 const int vsyncPin = 4;
 
-VGA3Bit vga;
+VGA1BitI vga;
 
 // Network Config
 const char* ssid = "AirFiber";
@@ -23,8 +23,8 @@ WiFiUDP udp;
 void setup() {
     Serial.begin(115200);
     
-    // Initialize VGA at 320x240 (Scales up to 640x480 on monitor)
-    vga.init(vga.MODE320x240, redPins, greenPins, bluePins, hsyncPin, vsyncPin);
+    // Initialize VGA at 640x480 (WARNING: High RAM usage, may cause DMA buffer panic)
+    vga.init(vga.MODE640x480, redPins, greenPins, bluePins, hsyncPin, vsyncPin);
     vga.setFont(Font6x8);
     vga.clear(vga.RGB(0, 0, 0));
     vga.setCursor(10, 10);
@@ -51,10 +51,11 @@ void setup() {
 void loop() {
     int packetSize = udp.parsePacket();
     if (packetSize) {
-        uint8_t buffer[322];
+        // 640 pixels + 2 bytes for the line index
+        uint8_t buffer[642];
         int len = udp.read(buffer, sizeof(buffer));
         
-        if (len == 322) {
+        if (len == 642) {
             uint16_t lineIndex = (buffer[0] << 8) | buffer[1];
             
             // Print a debug message for the first line of every frame so you know data is arriving!
@@ -62,12 +63,12 @@ void loop() {
                 Serial.println("Receiving frame data...");
             }
             
-            if (lineIndex < 240) {
-                for (int x = 0; x < 320; x++) {
-                    uint8_t gray = buffer[2 + x];
-                    int color = (gray > 127) ? vga.RGB(255, 255, 255) : vga.RGB(0, 0, 0);
-                    vga.dot(x, lineIndex, color);
-                }
+            // Draw the line to the screen (640 pixels per packet)
+            for (int x = 0; x < packetSize - 2; x++) {
+                int gray = buffer[2 + x];
+                // Use 1-bit packed color (1 = white, 0 = black)
+                int color = (gray > 127) ? 1 : 0;
+                vga.dot(x, lineIndex, color);
             }
         } else {
             Serial.printf("Received unexpected packet size: %d\n", len);
