@@ -1,0 +1,18 @@
+# Node.js
+node_server/node_modules/
+node_server/package-lock.json
+node_server/npm-debug.log
+
+# Media (User uploaded content)
+node_server/media/*
+!node_server/media/.gitkeep
+
+# Arduino IDE
+ArduinoSketch/build/
+*.bin
+*.elf
+*.hex
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -13,7 +13,7 @@ const WEB_PORT = 3000;
 
 // Global State
 let displayState = {
-    mode: 'auto', 
+    mode: 'auto',
     currentMedia: null,
     slideDuration: 10000,
     pdfScroll: true,
@@ -54,10 +54,10 @@ const NODE_HEIGHT = 480;
 
 // Physical IPs of the 4 ESP32s (assign them in your router)
 const ESP32_NODES = [
-    { ip: "192.168.31.82", offsetX: 0, offsetY: 0, name: "Top-Left" },
+    { ip: "192.168.31.85", offsetX: 0, offsetY: 0, name: "Top-Left" },
     { ip: "192.168.31.83", offsetX: NODE_WIDTH, offsetY: 0, name: "Top-Right" },
-    { ip: "192.168.31.84", offsetX: 0, offsetY: NODE_HEIGHT, name: "Bottom-Left" },
-    { ip: "192.168.31.85", offsetX: NODE_WIDTH, offsetY: NODE_HEIGHT, name: "Bottom-Right" }
+    { ip: "192.168.31.82", offsetX: 0, offsetY: NODE_HEIGHT, name: "Bottom-Left" },
+    { ip: "192.168.31.84", offsetX: NODE_WIDTH, offsetY: NODE_HEIGHT, name: "Bottom-Right" }
 ];
 const UDP_PORT = 12345;
 
@@ -82,11 +82,10 @@ async function startServer() {
             // Determine dynamic resolution based on layout
             const currentWidth = displayState.layout === '2x2' ? NODE_WIDTH * 2 : NODE_WIDTH;
             const currentHeight = displayState.layout === '2x2' ? NODE_HEIGHT * 2 : NODE_HEIGHT;
-            
+
             await page.setViewport({ width: currentWidth, height: currentHeight });
-            
+
             const screenshotBase64 = await page.screenshot({ encoding: 'base64' });
-            require('fs').writeFileSync('preview_full_wall.png', Buffer.from(screenshotBase64, 'base64'));
 
             const pixelData = await page.evaluate(async (base64, w, h) => {
                 return new Promise((resolve) => {
@@ -101,7 +100,7 @@ async function startServer() {
                         const imgData = ctx.getImageData(0, 0, w, h).data;
                         const grayscale = new Uint8Array(w * h);
                         const errors = new Float32Array(w * h);
-                        
+
                         for (let y = 0; y < h; y++) {
                             for (let x = 0; x < w; x++) {
                                 const idx = y * w + x;
@@ -110,7 +109,7 @@ async function startServer() {
                                 const newColor = val > 127 ? 255 : 0;
                                 grayscale[idx] = newColor;
                                 const err = val - newColor;
-                                
+
                                 if (x + 1 < w) errors[idx + 1] += err * (7 / 16);
                                 if (y + 1 < h) {
                                     if (x - 1 >= 0) errors[(y + 1) * w + x - 1] += err * (3 / 16);
@@ -127,29 +126,29 @@ async function startServer() {
 
             // Interleaved UDP Streaming
             for (let localY = 0; localY < NODE_HEIGHT; localY++) {
-                
+
                 // Construct and send packet for each node for THIS line
                 for (let i = 0; i < ESP32_NODES.length; i++) {
                     const node = ESP32_NODES[i];
-                    
+
                     const readOffsetX = displayState.layout === 'duplicate' ? 0 : node.offsetX;
                     const readOffsetY = displayState.layout === 'duplicate' ? 0 : node.offsetY;
                     const globalY = readOffsetY + localY;
-                    
+
                     const packet = Buffer.alloc(NODE_WIDTH + 2);
                     packet[0] = (localY >> 8) & 0xFF; // Local Line index
                     packet[1] = localY & 0xFF;
-                    
+
                     for (let localX = 0; localX < NODE_WIDTH; localX++) {
                         const globalX = readOffsetX + localX;
                         packet[2 + localX] = pixelData[globalY * currentWidth + globalX];
                     }
-                    
+
                     client.send(packet, UDP_PORT, node.ip, (err) => {
                         // ignore errors to prevent console spam
                     });
                 }
-                
+
                 // Wait 2ms after sending the line to ALL nodes
                 await new Promise(r => setTimeout(r, 2));
             }
@@ -157,11 +156,11 @@ async function startServer() {
         } catch (err) {
             console.error("Frame capture error:", err);
         }
-        
+
         // Loop at approximately 1 FPS
         setTimeout(captureLoop, 1000);
     }
-    
+
     // Start loop
     captureLoop();
 }
