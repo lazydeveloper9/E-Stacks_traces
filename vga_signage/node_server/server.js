@@ -29,7 +29,7 @@ app.get('/api/playlist', (req, res) => {
         return res.json([]);
     }
     const files = fs.readdirSync(mediaDir).filter(file => {
-        return file.match(/\.(png|jpg|jpeg|pdf)$/i);
+        return file.match(/\.(png|jpg|jpeg|pdf|html)$/i);
     });
     res.json(files);
 });

@@ -68,6 +68,17 @@ async function renderPdfPage(url, container) {
     }
 }
 
+function renderHtmlPage(url, container) {
+    return new Promise((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'media';
+        iframe.style.border = 'none';
+        iframe.onload = () => resolve(iframe);
+        iframe.src = url;
+        container.appendChild(iframe);
+    });
+}
+
 function renderImage(url, container) {
     return new Promise((resolve) => {
         const img = new Image();
@@ -96,6 +107,8 @@ async function startSlideshow() {
             
             if (state.currentMedia.toLowerCase().endsWith('.pdf')) {
                 el = await renderPdfPage(url, container);
+            } else if (state.currentMedia.toLowerCase().endsWith('.html')) {
+                el = await renderHtmlPage(url, container);
             } else {
                 el = await renderImage(url, container);
             }
@@ -137,6 +150,8 @@ async function startSlideshow() {
             
             if (file.toLowerCase().endsWith('.pdf')) {
                 el = await renderPdfPage(url, container);
+            } else if (file.toLowerCase().endsWith('.html')) {
+                el = await renderHtmlPage(url, container);
             } else {
                 el = await renderImage(url, container);
             }
