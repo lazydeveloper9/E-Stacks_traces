@@ -141,3 +141,10 @@ The underlying engineering principles are extensively documented in the included
 <div align="center">
   <i>Built with hardware-hacking enthusiasm.</i>
 </div>
+
+# Screenshots and Images of Prototype (of 1 unit)
+<img width="899" height="1599" alt="WhatsApp Image 2026-07-07 at 12 40 26 PM" src="https://github.com/user-attachments/assets/23e74eab-5ddd-4cc1-a886-bc0e8b4c54cc" />
+<img width="1600" height="1204" alt="WhatsApp Image 2026-07-07 at 12 38 58 PM" src="https://github.com/user-attachments/assets/47b8ff71-e4b2-482c-a746-54174de1f8b0" />
+<img width="1600" height="1204" alt="WhatsApp Image 2026-07-07 at 12 38 59 PM" src="https://github.com/user-attachments/assets/775fe30c-8cbc-4f02-a805-8665af55f6ef" />
+<img width="1600" height="1204" alt="WhatsApp Image 2026-07-07 at 12 38 59 PM (1)" src="https://github.com/user-attachments/assets/103c830a-bff1-4260-8701-724b5c77652e" />
+<img width="704" height="912" alt="Screenshot 2026-07-07 115816" src="https://github.com/user-attachments/assets/0f6a7196-7c9e-4d7e-95f8-4ebfcb88ba07" />
