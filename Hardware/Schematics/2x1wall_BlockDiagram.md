@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
     subgraph Server["Central Node.js Server"]
         WebUI["Web Canvas (Notices/Circulars)"]
@@ -17,3 +18,4 @@ flowchart TD
         Rx1 --> Mon1["VGA Display 1"]
         Rx2 --> Mon2["VGA Display 2"]
     end
+```
