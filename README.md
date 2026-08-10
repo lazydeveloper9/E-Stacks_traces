@@ -8,7 +8,7 @@ E-Stacks is a dual-initiative project: a **hardware phase** that repurposes old 
 ## Projects Under EStacks
 * Smart Digital Screens inside college corridors
   > A network connected screen displaying Daily Updates, Circulars, Notices, Event Updates etc. A eassy to install screen made with Old unused or damaged monitors and e waste of our campus.
-* AI enabled Operating System for Low End PCs
+
 * AegisDrive Wiper
   > A systems-level data destruction utility that maps a drive, formats it, and streams cryptographic random garbage data over the full storage capacity before a final reformat — ensuring any forceful recovery attempt yields only unusable, uncompressible garbage. Ships as a statically linked Rust binary.
 
@@ -229,11 +229,6 @@ A schematic-level BOM (MPN, manufacturer, value, footprint per part) and the ful
 
 ---
 
-## 🙌 Credits
-
-Built by **Team UTKARSH** under the IEEE Community Climate Club at Bhilai Institute of Technology, Durg. Project maintenance and formatting standards (`.prettierrc`, etc.) are coordinated by Yogendra Kumar Narmada.
-
----
 <div align="center">
   <i>Built with hardware-hacking enthusiasm.</i>
 </div>
